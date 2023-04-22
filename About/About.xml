@@ -6,7 +6,7 @@
 	<supportedVersions>
 		<li>1.4</li>
 	</supportedVersions>
-	<modVersion>1.0</modVersion>
+	<modVersion>1.0.1</modVersion>
 	<url>https://github.com/Owlchemist/door-clearance</url>
 	<description>A lightweight mod which adds an extra validation rule when items are placed on the ground - they will now consider door/gate tiles as invalid.</description>
 	<modDependencies>
