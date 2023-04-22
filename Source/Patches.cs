@@ -20,20 +20,19 @@ namespace DoorClearance
             for (int i = list.Count; i-- > 0;)
             {
                 var def = list[i];
-                if (def.thingClass == building_door || def.thingClass.IsSubclassOf(building_door) || def.thingClass.Name.Contains("DoorsExpanded")) doors.Add(def.shortHash);
+                var thingClass = def.thingClass;
+                if (thingClass == building_door || thingClass.IsSubclassOf(building_door) || thingClass.Name.Contains("DoorsExpanded")) doors.Add(def.shortHash);
             }
         }
     }
     
-    [HarmonyPatch(typeof(HaulAIUtility), nameof(HaulAIUtility.HaulablePlaceValidator))]
+    [HarmonyPatch(typeof(HaulAIUtility), "HaulablePlaceValidator")]
     class Patch_HaulAIUtility_HaulablePlaceValidator
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var method = AccessTools.Method(typeof(GridsUtility), nameof(GridsUtility.GetEdifice));
             int offset = 0;
-            bool found = false;
-            //Identify where the index is
             foreach (var instruction in instructions)
             {
                 if (offset > 0 && offset-- == 1)
@@ -43,7 +42,6 @@ namespace DoorClearance
 			        yield return new CodeInstruction(OpCodes.Ldc_I4_0); //Otherwise, push false to the return
 			        yield return new CodeInstruction(OpCodes.Ret);
                     offset = -1;
-                    found = true;
                     continue;
                 }
                 if (offset < 0 && offset-- > -6) continue; //Skip next 5 instructions, no longer needed
@@ -53,7 +51,7 @@ namespace DoorClearance
                 }
                 yield return instruction;
             }
-            if (!found) Log.Error("[Door Clearance] Patch_HaulAIUtility_HaulablePlaceValidator transpiler failed to find its target. Did RimWorld update?");
+            if (offset >= 0) Log.Error("[Door Clearance] Patch_HaulAIUtility_HaulablePlaceValidator transpiler failed to find its target. Did RimWorld update?");
         }
         public static bool Validate(Building edifice)
         {
@@ -63,7 +61,7 @@ namespace DoorClearance
         }
     }
     
-    [HarmonyPatch(typeof(GenPlace), nameof(GenPlace.PlaceSpotQualityAt))]
+    [HarmonyPatch(typeof(GenPlace), "PlaceSpotQualityAt")]
     class Patch_GenPlace_PlaceSpotQualityAt
     {
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -74,9 +72,10 @@ namespace DoorClearance
 
         public static bool Validate(IntVec3 cell, Map map)
         {
-            if (!cell.Walkable(map)) return false;
+            var index = map.cellIndices.CellToIndex(cell);
+            if (!map.pathing.Normal.pathGrid.WalkableFast(index) || !map.pathing.FenceBlocked.pathGrid.WalkableFast(index)) return false;
 
-            var things = map.thingGrid.ThingsListAtFast(cell);
+            var things = map.thingGrid.ThingsListAtFast(index);
             var doors = Setup.doors;
             for (int i = things.Count; i-- > 0;)
             {
